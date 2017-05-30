@@ -33,14 +33,6 @@ class BobController @Inject()(action: BobAction,
     }
   }
 
-  def show(id: Int): Action[AnyContent] = {
-    action.async { implicit request =>
-      handler.lookup(id).map { bob =>
-        Ok(Json.toJson(bob))
-      }
-    }
-  }
-
   def process: Action[AnyContent] = {
     action.async { implicit request =>
       processJsonPost()
@@ -52,7 +44,7 @@ class BobController @Inject()(action: BobAction,
       Future.successful(BadRequest(badForm.errorsAsJson))
     }
 
-    def success(input: BobFormInput) = {
+    def success(input: BobFormInput): Future[Result] = {
       handler.process(input).map { msg =>
         Created(Json.toJson(msg))
       }

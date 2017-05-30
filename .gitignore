@@ -1,3 +1,5 @@
+conf/secure.conf
+
 *.class
 *.log
 

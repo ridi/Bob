@@ -6,10 +6,10 @@ import play.api.routing.Router.Routes
 import play.api.routing.SimpleRouter
 import play.api.routing.sird._
 
-/**
-  * Routes and URLs to the PostResource controller.
-  */
-class BobRouter @Inject()(controller: BobController)
+class BobRouter @Inject()(
+                           controller: BobController,
+                           interactionController: BobInterActionController
+                         )
   extends SimpleRouter {
   val prefix = "/slack/bob"
 
@@ -21,9 +21,7 @@ class BobRouter @Inject()(controller: BobController)
 
   override def routes: Routes = {
     case GET(p"/") => controller.index
-
-    case GET(p"/$id") => controller.show(id.toInt)
-
     case POST(p"/") => controller.process
+    case POST(p"/im") => interactionController.process
   }
 }

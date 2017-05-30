@@ -16,5 +16,8 @@ class Module(environment: Environment, configuration: Configuration)
 
   override def configure() = {
     bind[BobRepository].to[BobRepositoryImpl].in[Singleton]
+    bind[PollRepository].to[PollRepositoryImpl].in[Singleton]
+    bind[CandidateRepository].to[CandidateRepositoryImpl].in[Singleton]
+    bind[VoteRepository].to[VoteRepositoryImpl].in[Singleton]
   }
 }
