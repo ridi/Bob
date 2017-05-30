@@ -54,7 +54,7 @@ class BobResourceHandler @Inject()(routerProvider: Provider[BobRouter],
   private def getRandomOne: Future[SlackSimpleResponse] = {
     bobRepo.list.map { bobDataList =>
       val pick = Random.shuffle(bobDataList).head
-      createSimpleResponse(pick.name, "on_channel")
+      createSimpleResponse(pick.name, "in_channel")
     }
   }
 
