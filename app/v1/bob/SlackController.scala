@@ -17,14 +17,13 @@ class SlackController @Inject()(ws: WSClient)(implicit ec: ExecutionContext) {
         .withHeaders("content-type" -> "application/x-www-form-urlencoded")
         .post(body)
         .map { response =>
-          println(response.json)
           (response.json \ "ts").as[String]
         }, 10 seconds)
   }
 
 }
 
-case class SlackSimpleResponse(text: String, responseType: String, replace: Boolean)
+case class SlackSimpleResponse(text: String, responseType: String = "ephemeral", replace: Boolean = false)
 
 object SlackSimpleResponse {
   implicit val implicitWrites = new Writes[SlackSimpleResponse] {
