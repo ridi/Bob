@@ -5,8 +5,9 @@ import javax.inject.{Inject, Provider}
 import play.api.cache._
 import play.api.libs.json._
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Random
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Random, Success, Try}
 
 
 class BobResourceHandler @Inject()(cache: CacheApi,
@@ -61,10 +62,18 @@ class BobResourceHandler @Inject()(cache: CacheApi,
     val userId = (json \ "user" \ "id").as[String]
 
     val vote = Vote(pollId, userId, selection)
-
-    selection match {
-      case -1 => pollService.close(vote)
-      case _ => pollService.vote(vote)
+    reactValidation(vote) match {
+      case Success(_) =>
+        pollService.vote(vote)
+      case Failure(_) =>
+        Future.successful(
+          SlackSimpleResponse("poll closed!")
+        )
     }
   }
+
+  private def reactValidation(v: Vote): Try[Unit] =
+    Try {
+      require(Await.result(pollRepo.checkPollOpened(v.pollId), 5 seconds))
+    }
 }

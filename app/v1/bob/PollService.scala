@@ -36,7 +36,7 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
     }
   }
 
-  def getPoll(pollId: Long): BobPoll = {
+  private def getPoll(pollId: Long): BobPoll = {
     val poll = Await.result(pollRepo.select(pollId), 10 seconds)
     val candidates = Await.result(candidateRepo.select(pollId), 10 seconds)
     val votes = Await.result(voteRepo.select(pollId), 10 seconds)
@@ -44,7 +44,7 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
     BobPoll(poll, candidates, votes)
   }
 
-  private def doVote(v: Vote): Future[BobPoll] = {
+  def vote(v: Vote): Future[SlackSimpleResponse] = {
     def func = v.selection match {
       case -1 => pollRepo.closePoll(v.pollId)
       case _ => voteRepo.vote(v)
@@ -52,32 +52,33 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
 
     func.map { i =>
       Await.result(postPoll(getPoll(v.pollId)), 10 seconds)
-    }
+    } map { poll => mkVoteResultString(v)(poll) }
   }
 
-  def vote(v: Vote): Future[SlackSimpleResponse] = {
-    doVote(v).map { poll =>
-      val bob = bobRepo.asMap
-      val resultStr = poll.resultByUser.getOrElse(v.userId, Nil).map { vote =>
-        bob.getOrElse(poll.candidateBobIdMap(vote.selection), vote.selection.toString)
-      }.mkString(", ")
-      SlackSimpleResponse(s"You voted to $resultStr")
+  private def mkVoteResultString(v: Vote)(p: BobPoll): SlackSimpleResponse = {
+    def getBobName(voteSelection: Int) = {
+      val bobId: Long = p.candidateBobIdMap.getOrElse(voteSelection, 0)
+      bobRepo.asMap.getOrElse(bobId, "Unknown")
     }
-  }
 
-  def close(v: Vote): Future[SlackSimpleResponse] = {
-    doVote(v).map { poll =>
-      val result = poll.resultBySelection
-      val bob: Map[Long, String] = bobRepo.asMap
-      val resultStr =
-        if (result.isEmpty) "Nothing Selected"
-        else
-          result
+    v.selection match {
+      case -1 => // close vote
+        val result =
+          p.resultBySelection
             .mapValues(_.map(_.userMentionStr))
-            .map(a => s"${bob.getOrElse(poll.candidateBobIdMap(a._1), a._1.toString)}: ${a._2.size} - ${a._2.mkString(", ")}")
-            .mkString("\n")
+            .map { case (bobId, voters) =>
+              s"${getBobName(bobId)}: ${voters.size} - ${voters.mkString(", ")}"
+            }
+        SlackSimpleResponse(
+          s"""*Poll Closed!*\n${if (result.isEmpty) "Nothin Selected" else result mkString "\n"}""",
+          "in_channel")
 
-      SlackSimpleResponse(s"*Poll Closed!*\n$resultStr", "in_channel")
+      case _ => // vote Action
+        val voteList =
+          p.resultByUser
+            .getOrElse(v.userId, Nil)
+            .map(vote => getBobName(vote.selection))
+        SlackSimpleResponse(s"""You voted to ${if (voteList.isEmpty) "Nowhere" else voteList mkString ", "}.""")
     }
   }
 
