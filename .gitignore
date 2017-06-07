@@ -2,6 +2,7 @@ conf/secure.conf
 
 *.class
 *.log
+*.sc
 
 # sbt specific
 .cache
