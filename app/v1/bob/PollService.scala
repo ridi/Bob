@@ -18,15 +18,15 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
 
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
 
-  def create(bobList: Seq[Bob]): Future[SlackSimpleResponse] = {
-    createPoll(bobList).flatMap(identity).map { poll =>
+  def create(channelId: String, bobList: Seq[Bob]): Future[SlackSimpleResponse] = {
+    createPoll(channelId, bobList).flatMap(identity).map { poll =>
       postPoll(poll)
       SlackSimpleResponse("Poll Created")
     }
   }
 
-  private def createPoll(bobList: Seq[Bob]): Future[Future[BobPoll]] = {
-    pollRepo.createNewPoll().map { pollId =>
+  private def createPoll(channelId: String, bobList: Seq[Bob]): Future[Future[BobPoll]] = {
+    pollRepo.createNewPoll(channelId).map { pollId =>
       val candidates =
         bobList
           .zip(Stream from 1)
@@ -87,8 +87,8 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
     val postBody =
       Map(
         "token" -> Seq(conf.getString("slack.client.token")),
-        "channel" -> Seq(conf.getString("slack.client.channel")),
-        "ts" -> Seq(poll.poll.messageTs.getOrElse("")),
+        "channel" -> Seq(poll.channel),
+        "ts" -> Seq(poll.messageTs),
         "text" -> Seq("Lunch!"),
         "attachments" -> Seq(Json.stringify(Json.toJson(poll)))
       )

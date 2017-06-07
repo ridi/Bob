@@ -7,7 +7,7 @@ import anorm.SqlParser._
 import play.api.db.DBApi
 import scala.concurrent.Future
 
-case class Poll(id: Long, messageTs: Option[String], isOpen: Boolean)
+case class Poll(id: Long, channelId: String, messageTs: Option[String], isOpen: Boolean)
 
 case class PollResult(pollId: Long, userId: String, candidateSerialNo: Int, candidateName: String) {
   val userMentionStr = s"<@$userId>"
@@ -16,7 +16,7 @@ case class PollResult(pollId: Long, userId: String, candidateSerialNo: Int, cand
 trait PollRepository {
   def select(pollId: Long): Future[Poll]
 
-  def createNewPoll(): Future[Long]
+  def createNewPoll(channelId: String): Future[Long]
 
   def closePoll(pollId: Long): Future[Int]
 
@@ -36,23 +36,23 @@ class PollRepositoryImpl @Inject()(dbapi: DBApi) extends PollRepository {
     Future.successful {
       db.withConnection { implicit conn =>
         val simple: RowParser[Poll] = {
-          get[Long]("id") ~ get[Option[String]]("message_ts") ~ get[Boolean]("is_open") map {
-            case id ~ msgTs ~ isOpen => Poll(id, msgTs, isOpen)
+          get[Long]("id") ~ get[String]("channel_id") ~ get[Option[String]]("message_ts") ~ get[Boolean]("is_open") map {
+            case id ~ channelId ~ msgTs ~ isOpen => Poll(id, channelId, msgTs, isOpen)
           }
         }
 
-        SQL("SELECT id, message_ts, is_open FROM poll WHERE id = {id}")
+        SQL("SELECT id, channel_id, message_ts, is_open FROM poll WHERE id = {id}")
           .on('id -> pollId)
           .as(simple.single)
       }
     }
   }
 
-  def createNewPoll(): Future[Long] = {
+  def createNewPoll(channelId: String): Future[Long] = {
     Future.successful {
       logger.trace(s"create new poll")
       db.withConnection { implicit conn =>
-        SQL("""INSERT INTO poll (is_open) values (true)""")
+        SQL(s"""INSERT INTO poll (channel_id, is_open) values ('$channelId', true)""")
           .executeInsert(scalar[Long].single)
       }
     }

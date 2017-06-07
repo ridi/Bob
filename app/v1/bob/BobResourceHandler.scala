@@ -24,7 +24,7 @@ class BobResourceHandler @Inject()(cache: CacheApi,
     command match {
       case "one" :: rest => getRandomOne
       case "list" :: rest => getList
-      case "poll" :: rest => poll(rest)
+      case "poll" :: rest => poll(bobInput.channelId)(rest)
       case "add" :: name :: rest => add(name)
       case _ => Future.successful(SlackSimpleResponse("hi!"))
     }
@@ -36,10 +36,10 @@ class BobResourceHandler @Inject()(cache: CacheApi,
     }
   }
 
-  private def poll(args: List[String]): Future[SlackSimpleResponse] = {
+  private def poll(channelId: String)(args: List[String]): Future[SlackSimpleResponse] = {
     val pick = if (args.nonEmpty) args.head.toInt else 4
     val list = Random.shuffle(bobRepo.list).take(pick)
-    pollService.create(list)
+    pollService.create(channelId, list)
   }
 
   def getList: Future[SlackSimpleResponse] = {

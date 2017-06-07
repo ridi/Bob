@@ -4,6 +4,8 @@ import play.api.libs.json.{JsValue, Json, Writes}
 
 case class BobPoll(poll: Poll, candidates: Seq[Candidate], votes: Seq[Vote]) {
   val id: Long = poll.id
+  val channel: String = poll.channelId
+  val messageTs: String = poll.messageTs.getOrElse("")
   val isOpen: Boolean = poll.isOpen
   val candidatesOptional: Seq[Candidate] =
     if (isOpen) candidates :+ Candidate(poll.id, -1, -1, "Close", "danger") else candidates

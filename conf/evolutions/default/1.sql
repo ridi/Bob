@@ -12,6 +12,7 @@ create table bob (
 
 create table poll (
   id                bigint not null auto_increment,
+  channel_id        varchar(32),
   message_ts        varchar(32),
   is_open           boolean DEFAULT true,
   constraint pk_poll primary key (id)

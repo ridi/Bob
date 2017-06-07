@@ -8,7 +8,7 @@ import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-case class BobFormInput(text: String)
+case class BobFormInput(text: String, channelId: String)
 
 class BobController @Inject()(action: BobAction,
                               handler: BobResourceHandler)
@@ -20,7 +20,8 @@ class BobController @Inject()(action: BobAction,
 
     Form(
       mapping(
-        "text" -> nonEmptyText
+        "text" -> nonEmptyText,
+        "channel_id" -> nonEmptyText
       )(BobFormInput.apply)(BobFormInput.unapply)
     )
   }
