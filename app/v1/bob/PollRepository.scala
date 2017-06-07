@@ -9,10 +9,6 @@ import scala.concurrent.Future
 
 case class Poll(id: Long, channelId: String, messageTs: Option[String], isOpen: Boolean)
 
-case class PollResult(pollId: Long, userId: String, candidateSerialNo: Int, candidateName: String) {
-  val userMentionStr = s"<@$userId>"
-}
-
 trait PollRepository {
   def select(pollId: Long): Future[Poll]
 
@@ -23,8 +19,6 @@ trait PollRepository {
   def checkPollOpened(pollId: Long): Future[Boolean]
 
   def updateMessageTs(id: Long)(messageTs: String): Future[Int]
-
-  def getPollResult(pollId: Long): Future[Seq[PollResult]]
 }
 
 @Singleton
@@ -89,30 +83,5 @@ class PollRepositoryImpl @Inject()(dbapi: DBApi) extends PollRepository {
           ).executeUpdate
       }
     }
-  }
-
-  def getPollResult(pollId: Long): Future[Seq[PollResult]] = {
-    Future.successful(
-      db.withConnection { implicit conn =>
-        val simple: RowParser[PollResult] = {
-          get[String]("user_id") ~ get[Int]("serial_no") ~ get[String]("name") map {
-            case userId ~ serialNo ~ name => PollResult(pollId, userId, serialNo, name)
-          }
-        }
-
-        SQL(
-          """
-            |SELECT vh.user_id user_id, vh.candidate_serial_no serial_no, bob.name name
-            |FROM vote_history vh
-            |  JOIN candidates c ON vh.poll_id = c.poll_id AND vh.candidate_serial_no = c.serial_no
-            |  JOIN bob ON c.bob_id = bob.id
-            |WHERE vh.poll_id = {poll_id}
-            |GROUP BY user_id, serial_no, name
-            |HAVING count(*) % 2 = 1
-          """.stripMargin)
-          .on('poll_id -> pollId)
-          .as(simple.*)
-      }
-    )
   }
 }
