@@ -7,6 +7,7 @@ import play.api.libs.json.Json
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 class PollService @Inject()(routerProvider: Provider[BobRouter],
                             slack: SlackController,
@@ -18,11 +19,14 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
 
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
 
-  def create(channelId: String, bobList: Seq[Bob]): Future[SlackSimpleResponse] = {
-    createPoll(channelId, bobList).flatMap(identity).map { poll =>
-      postPoll(poll)
-      SlackSimpleResponse("Poll Created")
-    }
+  def create(channelId: String, bobList: Seq[Bob]): Future[SlackResponse] = {
+    createPoll(channelId, bobList)
+      .flatMap(identity)
+      .flatMap { poll =>
+        postPoll(poll).map { _ =>
+          SlackResponse("Poll Created")
+        }
+      }
   }
 
   private def createPoll(channelId: String, bobList: Seq[Bob]): Future[Future[BobPoll]] = {
@@ -44,18 +48,28 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
     BobPoll(poll, candidates, votes)
   }
 
-  def vote(v: Vote): Future[SlackSimpleResponse] = {
-    def func = v.selection match {
-      case -1 => pollRepo.closePoll(v.pollId)
-      case _ => voteRepo.vote(v)
+  def vote(v: Vote): Future[SlackResponse] = {
+    Try {
+      require(Await.result(pollRepo.checkPollOpened(v.pollId), 5 seconds))
+    } match {
+      case Success(_) => {
+        val func: Future[Int] = v.selection match {
+          case -1 => pollRepo.closePoll(v.pollId)
+          case _ => voteRepo.vote(v)
+        }
+
+        func.flatMap { _ =>
+          postPoll(getPoll(v.pollId)).map(mkVoteResultString(v)(_))
+        }
+      }
+      case Failure(_) => Future.successful(
+        SlackResponse("poll closed!")
+      )
     }
 
-    func.map { i =>
-      Await.result(postPoll(getPoll(v.pollId)), 10 seconds)
-    } map { poll => mkVoteResultString(v)(poll) }
   }
 
-  private def mkVoteResultString(v: Vote)(p: BobPoll): SlackSimpleResponse = {
+  private def mkVoteResultString(v: Vote)(p: BobPoll): SlackResponse = {
     def getBobName(voteSelection: Int) = {
       val bobId: Long = p.candidateBobIdMap.getOrElse(voteSelection, 0)
       bobRepo.asMap.getOrElse(bobId, "Unknown")
@@ -69,7 +83,7 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
             .map { case (bobId, voters) =>
               s"${getBobName(bobId)}: ${voters.size} - ${voters.mkString(", ")}"
             }
-        SlackSimpleResponse(
+        SlackResponse(
           s"""*Poll Closed!*\n${if (result.isEmpty) "Nothin Selected" else result mkString "\n"}""",
           "in_channel")
 
@@ -78,7 +92,7 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
           p.resultByUser
             .getOrElse(v.userId, Nil)
             .map(vote => getBobName(vote.selection))
-        SlackSimpleResponse(s"""You voted to ${if (voteList.isEmpty) "Nowhere" else voteList mkString ", "}.""")
+        SlackResponse(s"""You voted to ${if (voteList.isEmpty) "Nowhere" else voteList mkString ", "}.""")
     }
   }
 

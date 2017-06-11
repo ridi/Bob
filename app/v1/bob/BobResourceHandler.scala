@@ -5,9 +5,8 @@ import javax.inject.{Inject, Provider}
 import play.api.cache._
 import play.api.libs.json._
 
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Random, Success, Try}
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Random
 
 
 class BobResourceHandler @Inject()(cache: CacheApi,
@@ -19,61 +18,76 @@ class BobResourceHandler @Inject()(cache: CacheApi,
 
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
 
-  def process(bobInput: BobFormInput): Future[SlackSimpleResponse] = {
+  def process(bobInput: BobFormInput): Future[SlackResponse] = {
     val command = bobInput.text.split(" ").toList
     command match {
       case "one" :: rest => getRandomOne
       case "list" :: rest => getList
       case "poll" :: rest => poll(bobInput.channelId)(rest)
-      case "add" :: name :: rest => add(name)
-      case _ => Future.successful(SlackSimpleResponse("hi!"))
+      case "add" :: name => add(name.mkString(" "))
+      case _ => Future.successful(SlackResponse("hi!"))
     }
   }
 
-  private def add(name: String): Future[SlackSimpleResponse] = {
+  private def add(name: String): Future[SlackResponse] = {
     bobRepo.add(name).map { id =>
-      SlackSimpleResponse(s"$name added")
+      val distActions = List(
+        IMActionBtn("dist", "Near", "near"),
+        IMActionBtn("dist", "Mid", "mid"),
+        IMActionBtn("dist", "Far", "far")
+      )
+
+      val categoryActions = List(
+        IMActionBtn("category", "Korean", "korean"),
+        IMActionBtn("category", "Chinese", "chinese"),
+        IMActionBtn("category", "Japanese", "japanese"),
+        IMActionBtn("category", "Etc", "etc")
+      )
+      val attachments = List(
+        Attachment("distance", "test_fallback", s"bob_opt:$id:distance", distActions),
+        Attachment("category", "test_fallback", s"bob_opt:$id:category", categoryActions)
+      )
+
+      SlackResponse("test", "in_channel", attachments)
     }
   }
 
-  private def poll(channelId: String)(args: List[String]): Future[SlackSimpleResponse] = {
+  private def poll(channelId: String)(args: List[String]): Future[SlackResponse] = {
     val pick = if (args.nonEmpty) args.head.toInt else 4
     val list = Random.shuffle(bobRepo.list).take(pick)
     pollService.create(channelId, list)
   }
 
-  def getList: Future[SlackSimpleResponse] = {
+  def getList: Future[SlackResponse] = {
     bobRepo.getList.map { bobList =>
-      SlackSimpleResponse(bobList.map(_.name).mkString(", "))
+      SlackResponse(bobList.map(_.name).mkString(", "))
     }
   }
 
-  private def getRandomOne: Future[SlackSimpleResponse] = {
+  private def getRandomOne: Future[SlackResponse] = {
     bobRepo.getList.map { bobDataList =>
       val pick = Random.shuffle(bobDataList).head
-      SlackSimpleResponse(pick.name, "in_channel")
+      SlackResponse(pick.name, "in_channel")
     }
   }
 
-  def processReaction(payload: String): Future[SlackSimpleResponse] = {
+  def processReaction(payload: String): Future[SlackResponse] = {
     val json = Json.parse(payload)
-    val selection = (json \ "actions" \\ "value").head.as[String].toInt
-    val pollId = (json \ "actions" \\ "name").head.as[String].toLong
     val userId = (json \ "user" \ "id").as[String]
+    val interactType = (json \ "callback_id").as[String]
+    val value = (json \ "actions" \\ "value").head.as[String]
+    val name = (json \ "actions" \\ "name").head.as[String]
 
-    val vote = Vote(pollId, userId, selection)
-    reactValidation(vote) match {
-      case Success(_) =>
-        pollService.vote(vote)
-      case Failure(_) =>
-        Future.successful(
-          SlackSimpleResponse("poll closed!")
-        )
+    val command: List[String] = interactType.split(":").toList
+
+    command match {
+      case "bob_poll" :: id :: rest =>
+        pollService.vote(Vote(id.toLong, userId, value.toInt))
+      case "bob_opt" :: id :: modType :: rest =>
+        bobRepo.update(id.toLong)((modType, value)).map { _ =>
+          SlackResponse("good")
+        }
+      case _ => Future.successful(SlackResponse("hi!"))
     }
   }
-
-  private def reactValidation(v: Vote): Try[Unit] =
-    Try {
-      require(Await.result(pollRepo.checkPollOpened(v.pollId), 5 seconds))
-    }
 }
