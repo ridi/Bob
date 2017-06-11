@@ -7,6 +7,8 @@ set ignorecase true;
 create table bob (
   id                bigint not null auto_increment,
   name              varchar(255) not null,
+  category          varchar(16),
+  distance          varchar(16),
   constraint pk_bob primary key (id))
 ;
 
