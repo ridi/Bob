@@ -63,8 +63,8 @@ class BobResourceHandler @Inject()(cache: CacheApi,
 
     val vote = Vote(pollId, userId, selection)
     reactValidation(vote) match {
-      case Success(_) =>
-        pollService.vote(vote)
+      case Success(_) if selection <  0 => pollService.close(pollId)
+      case Success(_) if selection >= 0 => pollService.vote(vote)
       case Failure(_) =>
         Future.successful(
           SlackSimpleResponse("poll closed!")
