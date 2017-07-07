@@ -14,7 +14,8 @@ class BobResourceHandler @Inject()(cache: CacheApi,
                                    routerProvider: Provider[BobRouter],
                                    pollService: PollService,
                                    bobRepo: BobRepository,
-                                   pollRepo: PollRepository)
+                                   pollRepo: PollRepository,
+                                   pollResultRepo: PollResultRepository)
                                   (implicit ec: ExecutionContext) {
 
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
@@ -36,10 +37,14 @@ class BobResourceHandler @Inject()(cache: CacheApi,
     }
   }
 
-  private def poll(channelId: String)(args: List[String]): Future[SlackSimpleResponse] = {
+  private def poll(channelId: String)(args: List[String]) = {
     val pick = if (args.nonEmpty) args.head.toInt else 4
-    val list = Random.shuffle(bobRepo.list).take(pick)
-    pollService.create(channelId, list)
+    pollResultRepo
+      .getRecentlySelected(channelId)
+      .map(ignores => bobRepo.list.filter(ignores.contains))
+      .map(bobs => Random.shuffle(bobs).take(pick))
+      .map(list => pollService.create(channelId, list))
+      .map(_ => SlackSimpleResponse("Poll Created"))
   }
 
   def getList: Future[SlackSimpleResponse] = {
@@ -63,8 +68,20 @@ class BobResourceHandler @Inject()(cache: CacheApi,
 
     val vote = Vote(pollId, userId, selection)
     reactValidation(vote) match {
-      case Success(_) if selection <  0 => pollService.close(pollId)
-      case Success(_) if selection >= 0 => pollService.vote(vote)
+      case Success(_) if selection < 0 =>
+        pollService
+          .close(pollId)
+        .map(result =>
+          SlackSimpleResponse(
+            s"""*Poll Closed!*\n${if (result.isEmpty) "Nothing Selected" else result mkString "\n"}"""
+            , "in_channel")
+        )
+      case Success(_) if selection >= 0 =>
+        pollService
+          .vote(vote)
+          .map{ result =>
+            SlackSimpleResponse(s"""You voted to ${if (result.isEmpty) "Nowhere" else result mkString ", "}.""")
+          }
       case Failure(_) =>
         Future.successful(
           SlackSimpleResponse("poll closed!")

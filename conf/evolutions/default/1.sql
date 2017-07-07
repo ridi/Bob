@@ -30,6 +30,11 @@ create table vote_history (
   candidate_serial_no   int
 );
 
+create table poll_result (
+  poll_id           bigint not null,
+  bob_id            bigint not null
+)
+
 # --- !Downs
 
 SET REFERENTIAL_INTEGRITY FALSE;

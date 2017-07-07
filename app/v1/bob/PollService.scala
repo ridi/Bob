@@ -14,15 +14,15 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
                             bobRepo: BobRepository,
                             pollRepo: PollRepository,
                             candidateRepo: CandidateRepository,
+                            pollResultRepo: PollResultRepository,
                             voteRepo: VoteRepository)
                            (implicit ec: ExecutionContext) {
 
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
 
-  def create(channelId: String, bobList: Seq[Bob]): Future[SlackSimpleResponse] = {
+  def create(channelId: String, bobList: Seq[Bob]): Future[Future[BobPoll]] = {
     createPoll(channelId, bobList).flatMap(identity).map { poll =>
       postPoll(poll)
-      SlackSimpleResponse("Poll Created")
     }
   }
 
@@ -45,44 +45,41 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
     BobPoll(poll, candidates, votes)
   }
 
-  def vote(v: Vote): Future[SlackSimpleResponse] = {
+  def vote(v: Vote): Future[List[String]] = {
     Await.result(voteRepo.vote(v), 10 seconds)
     val poll = getPoll(v.pollId)
 
-    postPoll(poll).map{ poll =>
+    postPoll(poll).map{ _ =>
       poll.resultByUser
         .getOrElse(v.userId, Nil)
-        .map(vote => getBobName(poll)(vote.selection))
-    } map { result =>
-      SlackSimpleResponse(s"""You voted to ${if (result.isEmpty) "Nowhere" else result mkString ", "}.""")
+        .map(vote => getBobName(poll)(vote.selection)._2)
+        .toList
     }
   }
 
-  def close(pollId: Long): Future[SlackSimpleResponse] = {
+  def close(pollId: Long): Future[List[String]] = {
     Await.result(pollRepo.closePoll(pollId), 10 seconds)
     val poll = getPoll(pollId)
+    val pollResult = poll.resultBySelection
+    val maxVoteCount = pollResult.mapValues(_.size).toSeq.maxBy(_._2)._2
+    val selections = pollResult.mapValues(_.size).filter(_._2 == maxVoteCount).keySet
+    val selection = Random.shuffle(selections).head
 
-    postPoll(poll).map { poll =>
-      val pollResult = poll.resultBySelection
-      val max = pollResult.mapValues(_.size).toSeq.maxBy(_._2)._2
-      val selection = Random.shuffle(pollResult.mapValues(_.size).filter(_._2 == max).keySet).head
-
+    pollResultRepo.insert(PollResult(pollId, getBobName(poll)(selection)._1))
+    postPoll(poll).map { _ =>
       pollResult
         .mapValues(_.map(_.userMentionStr))
         .map { case (bobId, voters) =>
           val strong = if (bobId == selection) "*" else ""
-          s"$strong${getBobName(poll)(bobId)}: ${voters.size} - ${voters.mkString(", ")}$strong"
+          s"$strong${getBobName(poll)(bobId)._2}: ${voters.size} - ${voters.mkString(", ")}$strong"
         }
-    }.map { result =>
-      SlackSimpleResponse(
-        s"""*Poll Closed!*\n${if (result.isEmpty) "Nothing Selected" else result mkString "\n"}""",
-        "in_channel")
+        .toList
     }
   }
 
-  def getBobName(poll: BobPoll)(voteSelection: Int): String = {
+  def getBobName(poll: BobPoll)(voteSelection: Int): (Long, String) = {
     val bobId: Long = poll.candidateBobIdMap.getOrElse(voteSelection, 0)
-    bobRepo.asMap.getOrElse(bobId, "Unknown")
+    (bobId, bobRepo.asMap.getOrElse(bobId, "Unknown"))
   }
 
   private def postPoll(poll: BobPoll): Future[BobPoll] = {
