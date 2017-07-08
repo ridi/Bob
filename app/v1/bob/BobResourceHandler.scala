@@ -71,15 +71,15 @@ class BobResourceHandler @Inject()(cache: CacheApi,
       case Success(_) if selection < 0 =>
         pollService
           .close(pollId)
-        .map(result =>
-          SlackSimpleResponse(
-            s"""*Poll Closed!*\n${if (result.isEmpty) "Nothing Selected" else result mkString "\n"}"""
-            , "in_channel")
-        )
+          .map(result =>
+            SlackSimpleResponse(
+              s"""*Poll Closed!*\n${if (result.isEmpty) "Nothing Selected" else result mkString "\n"}"""
+              , "in_channel")
+          )
       case Success(_) if selection >= 0 =>
         pollService
           .vote(vote)
-          .map{ result =>
+          .map { result =>
             SlackSimpleResponse(s"""You voted to ${if (result.isEmpty) "Nowhere" else result mkString ", "}.""")
           }
       case Failure(_) =>

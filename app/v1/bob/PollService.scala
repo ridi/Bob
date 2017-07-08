@@ -50,9 +50,10 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
     val poll = getPoll(v.pollId)
 
     postPoll(poll).map{ _ =>
-      poll.resultByUser
+      poll
+        .resultByUser
         .getOrElse(v.userId, Nil)
-        .map(vote => getBobName(poll)(vote.selection)._2)
+        .map(vote => poll.candidateInfo(v.selection)._2)
         .toList
     }
   }
@@ -65,23 +66,18 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
     val selections = pollResult.mapValues(_.size).filter(_._2 == maxVoteCount).keySet
     val selection = Random.shuffle(selections).head
 
-    Await.result(pollResultRepo.insert(PollResult(pollId, getBobName(poll)(selection)._1)), 10 seconds)
+    Await.result(pollResultRepo.insert(PollResult(pollId, poll.candidateInfo(selection)._1)), 10 seconds)
     postPoll(poll).map { _ =>
       pollResult
         .mapValues(_.map(_.userMentionStr))
         .map { case (bobId, voters) =>
           if (bobId == selection)
-            s":tada:*${getBobName(poll)(bobId)._2}: ${voters.size} - ${voters.mkString(", ")}*"
+            s":tada: *${poll.candidateInfo(bobId)._2}: ${voters.size} - ${voters.mkString(", ")}*"
           else
-            s"${getBobName(poll)(bobId)._2}: ${voters.size} - ${voters.mkString(", ")}"
+            s"${poll.candidateInfo(bobId)._2}: ${voters.size} - ${voters.mkString(", ")}"
         }
         .toList
     }
-  }
-
-  def getBobName(poll: BobPoll)(voteSelection: Int): (Long, String) = {
-    val bobId: Long = poll.candidateBobIdMap.getOrElse(voteSelection, 0)
-    (bobId, bobRepo.asMap.getOrElse(bobId, "Unknown"))
   }
 
   private def postPoll(poll: BobPoll): Future[BobPoll] = {
