@@ -53,7 +53,7 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
       poll
         .resultByUser
         .getOrElse(v.userId, Nil)
-        .map(vote => poll.candidateInfo(v.selection)._2)
+        .map(myVote => poll.candidateInfo(myVote.selection)._2)
         .toList
     }
   }
