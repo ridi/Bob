@@ -70,8 +70,10 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
       pollResult
         .mapValues(_.map(_.userMentionStr))
         .map { case (bobId, voters) =>
-          val strong = if (bobId == selection) "*" else ""
-          s":tada:$strong${getBobName(poll)(bobId)._2}: ${voters.size} - ${voters.mkString(", ")}$strong"
+          if (bobId == selection)
+            s":tada:*${getBobName(poll)(bobId)._2}: ${voters.size} - ${voters.mkString(", ")}*"
+          else
+            s"${getBobName(poll)(bobId)._2}: ${voters.size} - ${voters.mkString(", ")}"
         }
         .toList
     }
