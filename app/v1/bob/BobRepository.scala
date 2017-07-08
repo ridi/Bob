@@ -31,7 +31,7 @@ trait BobRepository {
 @Singleton
 class BobRepositoryImpl @Inject()(cache: CacheApi, dbapi: DBApi) extends BobRepository {
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
-  private val db = dbapi.database("default")
+  private val db = dbapi.database("bob")
 
   val list: Seq[Bob] = cache.getOrElse("bob"){
     val bob = Await.result(getList, 10 seconds)

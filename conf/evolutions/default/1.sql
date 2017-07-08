@@ -2,7 +2,7 @@
 
 # --- !Ups
 
-set ignorecase true;
+# --- set ignorecase true;
 
 create table bob (
   id                bigint not null auto_increment,

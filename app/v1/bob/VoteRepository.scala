@@ -20,7 +20,7 @@ trait VoteRepository {
 @Singleton
 class VoteRepositoryImpl @Inject()(dbapi: DBApi) extends VoteRepository {
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
-  private val db = dbapi.database("default")
+  private val db = dbapi.database("bob")
 
   val simple: RowParser[Vote] =
     get[Long]("poll_id") ~ get[String]("user_id") ~ get[Int]("candidate_serial_no") map {

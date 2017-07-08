@@ -36,7 +36,7 @@ trait CandidateRepository {
 @Singleton
 class CandidateRepositoryImpl @Inject()(dbapi: DBApi) extends CandidateRepository {
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
-  private val db = dbapi.database("default")
+  private val db = dbapi.database("bob")
 
   val simple: RowParser[Candidate] =
     get[Long]("poll_id") ~ get[Int]("serial_no") ~ get[Long]("bob_id") ~ get[String]("bob_name") map {
