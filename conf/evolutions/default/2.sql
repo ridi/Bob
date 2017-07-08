@@ -2,16 +2,16 @@
 
 # --- !Ups
 
---insert into bob (name) values ('ONE');
---insert into bob (name) values ('TWO');
---insert into bob (name) values ('THREE');
---insert into bob (name) values ('FOUR');
---insert into bob (name) values ('FIVE');
---insert into bob (name) values ('SIX');
---insert into bob (name) values ('SEVEN');
---insert into bob (name) values ('EIGHT');
---insert into bob (name) values ('NINE');
---insert into bob (name) values ('TEN');
+-- insert into bob (name) values ('ONE');
+-- insert into bob (name) values ('TWO');
+-- insert into bob (name) values ('THREE');
+-- insert into bob (name) values ('FOUR');
+-- insert into bob (name) values ('FIVE');
+-- insert into bob (name) values ('SIX');
+-- insert into bob (name) values ('SEVEN');
+-- insert into bob (name) values ('EIGHT');
+-- insert into bob (name) values ('NINE');
+-- insert into bob (name) values ('TEN');
 insert into bob (name) values ('부산 아지매 국밥');
 insert into bob (name) values ('딸부자네 불백');
 insert into bob (name) values ('선릉 설렁탕');

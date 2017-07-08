@@ -24,7 +24,7 @@ trait PollRepository {
 @Singleton
 class PollRepositoryImpl @Inject()(dbapi: DBApi) extends PollRepository {
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
-  private val db = dbapi.database("default")
+  private val db = dbapi.database("bob")
 
   def select(pollId: Long): Future[Poll] = {
     Future.successful {
