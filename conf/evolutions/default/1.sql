@@ -43,6 +43,7 @@ drop table if exists bob;
 drop table if exists poll;
 drop table if exists candidates;
 drop table if exists vote_history;
+drop table if exists poll_result;
 
 SET REFERENTIAL_INTEGRITY TRUE;
 
