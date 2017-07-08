@@ -8,7 +8,7 @@ import play.api.libs.json._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Random, Success, Try}
-
+import utils.ImplicitConversions.ArrayThings
 
 class BobResourceHandler @Inject()(cache: CacheApi,
                                    routerProvider: Provider[BobRouter],
@@ -41,7 +41,7 @@ class BobResourceHandler @Inject()(cache: CacheApi,
     val pick = if (args.nonEmpty) args.head.toInt else 4
     pollResultRepo
       .getRecentlySelected(channelId)
-      .map(ignores => bobRepo.list.filterNot(bob => ignores.contains(bob.id)))
+      .map(ignores => bobRepo.list.filter(_.id isNotIn ignores))
       .map(bobs => Random.shuffle(bobs).take(pick))
       .map(list => pollService.create(channelId, list))
       .map(_ => SlackSimpleResponse("Poll Created"))
