@@ -12,7 +12,7 @@ case class PollResult(pollId: Long, bobId: Long)
 trait PollResultRepository {
   def select(pollId: Long): Future[List[PollResult]]
 
-  def insert(result: PollResult): Future[PollResult]
+  def insert(result: PollResult): Future[Int]
 
   def getRecentlySelected(channelId: String): Future[List[Long]]
 
@@ -38,12 +38,12 @@ class PollResultRepositoryImpl @Inject()(dbapi: DBApi) extends PollResultReposit
     }
   }
 
-  def insert(result: PollResult): Future[PollResult] = {
+  def insert(result: PollResult): Future[Int] = {
     Future.successful {
       db.withConnection { implicit conn =>
         SQL("INSERT INTO poll_result VALUES ({poll_id}, {bob_id})")
           .on('poll_id -> result.pollId, 'bob_id -> result.bobId)
-          .executeInsert(simple.single)
+          .executeUpdate()
       }
     }
   }
@@ -56,7 +56,8 @@ class PollResultRepositoryImpl @Inject()(dbapi: DBApi) extends PollResultReposit
             |SELECT r.bob_id
             |FROM poll_result r
             |  JOIN poll p
-            |WHERE p.channel_id = {channelId}
+            |WHERE p.is_open = 0
+            |  AND p.channel_id = {channelId}
             |ORDER BY p.message_ts DESC
             |LIMIT 5
           """.stripMargin)

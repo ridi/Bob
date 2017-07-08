@@ -41,7 +41,7 @@ class BobResourceHandler @Inject()(cache: CacheApi,
     val pick = if (args.nonEmpty) args.head.toInt else 4
     pollResultRepo
       .getRecentlySelected(channelId)
-      .map(ignores => bobRepo.list.filter(ignores.contains))
+      .map(ignores => bobRepo.list.filterNot(bob => ignores.contains(bob.id)))
       .map(bobs => Random.shuffle(bobs).take(pick))
       .map(list => pollService.create(channelId, list))
       .map(_ => SlackSimpleResponse("Poll Created"))

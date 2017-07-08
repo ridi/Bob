@@ -65,13 +65,13 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
     val selections = pollResult.mapValues(_.size).filter(_._2 == maxVoteCount).keySet
     val selection = Random.shuffle(selections).head
 
-    pollResultRepo.insert(PollResult(pollId, getBobName(poll)(selection)._1))
+    Await.result(pollResultRepo.insert(PollResult(pollId, getBobName(poll)(selection)._1)), 10 seconds)
     postPoll(poll).map { _ =>
       pollResult
         .mapValues(_.map(_.userMentionStr))
         .map { case (bobId, voters) =>
           val strong = if (bobId == selection) "*" else ""
-          s"$strong${getBobName(poll)(bobId)._2}: ${voters.size} - ${voters.mkString(", ")}$strong"
+          s":tada:$strong${getBobName(poll)(bobId)._2}: ${voters.size} - ${voters.mkString(", ")}$strong"
         }
         .toList
     }
