@@ -72,7 +72,7 @@ class PollService @Inject()(routerProvider: Provider[BobRouter],
         .mapValues(_.map(_.userMentionStr))
         .map { case (bobId, voters) =>
           if (bobId == selection)
-            s":tada: *${poll.candidateInfo(bobId)._2}: ${voters.size} - ${voters.mkString(", ")}*"
+            s":tada: *${poll.candidateInfo(bobId)._2}: ${voters.size}* - ${voters.mkString(", ")}"
           else
             s"${poll.candidateInfo(bobId)._2}: ${voters.size} - ${voters.mkString(", ")}"
         }
